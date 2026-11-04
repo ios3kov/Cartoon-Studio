@@ -1,4 +1,4 @@
-declare module 'p5.brush/standalone' {
+declare module "p5.brush/standalone" {
   export function load(target: HTMLCanvasElement | OffscreenCanvas): void;
   export function clear(color?: string): void;
   export function render(): void;
@@ -17,14 +17,50 @@ declare module 'p5.brush/standalone' {
   export function noWash(): void;
   export function noHatch(): void;
   export function noMass(): void;
-  export function mass(name: string, color: string, options?: { precision?: number; strength?: number; gradient?: number; outline?: boolean; style?: 'scribble'; length?: number; follow?: number }): void;
-  export function fillBleed(strength: number, direction?: 'in' | 'out'): void;
-  export function fillTexture(strength: number, borderIntensity: number, scatter?: boolean, split?: number): void;
+  export function mass(
+    name: string,
+    color: string,
+    options?: {
+      precision?: number;
+      strength?: number;
+      gradient?: number;
+      outline?: boolean;
+      style?: "scribble";
+      length?: number;
+      follow?: number;
+    },
+  ): void;
+  export function fillBleed(strength: number, direction?: "in" | "out"): void;
+  export function fillTexture(
+    strength: number,
+    borderIntensity: number,
+    scatter?: boolean,
+    split?: number,
+  ): void;
   export function line(x1: number, y1: number, x2: number, y2: number): void;
   export function spline(points: number[][], curvature?: number): void;
   export function polygon(points: number[][]): void;
-  export function circle(x: number, y: number, radius: number, irregularity?: number): void;
-  export function rect(x: number, y: number, width: number, height: number, mode?: 'corner' | 'center'): void;
-  export function hatch(distance: number, angle: number, options?: { rand?: number; continuous?: boolean; gradient?: number }): void;
-  export function hatchStyle(name: string, color: string, weight?: number): void;
+  export function circle(
+    x: number,
+    y: number,
+    radius: number,
+    irregularity?: number,
+  ): void;
+  export function rect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    mode?: "corner" | "center",
+  ): void;
+  export function hatch(
+    distance: number,
+    angle: number,
+    options?: { rand?: number; continuous?: boolean; gradient?: number },
+  ): void;
+  export function hatchStyle(
+    name: string,
+    color: string,
+    weight?: number,
+  ): void;
 }

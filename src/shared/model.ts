@@ -1,13 +1,19 @@
-export const STYLE_IDS = ['watercolor', 'pencil', 'pastel'] as const;
-export const BACKDROP_IDS = ['hills', 'coast', 'city', 'forest', 'night'] as const;
-export const ACTION_IDS = ['idle', 'walk', 'wave', 'jump', 'ride'] as const;
-export const MOOD_IDS = ['happy', 'curious', 'surprised', 'calm'] as const;
-export type StyleId = typeof STYLE_IDS[number];
-export type BackdropId = typeof BACKDROP_IDS[number];
-export type ActionId = typeof ACTION_IDS[number];
-export type MoodId = typeof MOOD_IDS[number];
-export type HairStyle = 'short' | 'bob' | 'long';
-export type Transition = 'cut' | 'fade' | 'paint';
+export const STYLE_IDS = ["watercolor", "pencil", "pastel"] as const;
+export const BACKDROP_IDS = [
+  "hills",
+  "coast",
+  "city",
+  "forest",
+  "night",
+] as const;
+export const ACTION_IDS = ["idle", "walk", "wave", "jump", "ride"] as const;
+export const MOOD_IDS = ["happy", "curious", "surprised", "calm"] as const;
+export type StyleId = (typeof STYLE_IDS)[number];
+export type BackdropId = (typeof BACKDROP_IDS)[number];
+export type ActionId = (typeof ACTION_IDS)[number];
+export type MoodId = (typeof MOOD_IDS)[number];
+export type HairStyle = "short" | "bob" | "long";
+export type Transition = "cut" | "fade" | "paint";
 
 export interface Character {
   id: string;
@@ -48,7 +54,7 @@ export interface AudioTrack {
   trimStart: number;
   volume: number;
   loop: boolean;
-  kind: 'music' | 'voice' | 'effect';
+  kind: "music" | "voice" | "effect";
 }
 export interface Project {
   version: 1;
@@ -73,7 +79,7 @@ export interface SceneSample {
   duration: number;
 }
 export interface RenderStatus {
-  backend: 'p5.brush' | 'canvas2d';
+  backend: "p5.brush" | "canvas2d";
   message?: string;
 }
 export interface StudioRenderer {
@@ -83,19 +89,24 @@ export interface StudioRenderer {
   dispose(): void;
   status(): RenderStatus;
 }
-export type ExportPreset = 'draft' | 'hd';
+export type ExportPreset = "draft" | "hd";
 export interface ExportJob {
   id: string;
-  status: 'queued' | 'rendering' | 'encoding' | 'done' | 'error' | 'cancelled';
+  status: "queued" | "rendering" | "encoding" | "done" | "error" | "cancelled";
   progress: number;
   error?: string;
   downloadUrl?: string;
   frames?: number;
   totalFrames?: number;
 }
-export interface AudioAsset { id: string; name: string; duration: number; url: string; }
+export interface AudioAsset {
+  id: string;
+  name: string;
+  duration: number;
+  url: string;
+}
 export interface Health {
-  status: 'ok';
+  status: "ok";
   ffmpeg: boolean;
   browser: boolean;
   aiConfigured: boolean;

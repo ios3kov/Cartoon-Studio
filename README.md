@@ -7,6 +7,8 @@
 Он содержит три сцены и длится 18 секунд.
 Персонажи придуманы для этого проекта.
 
+![Редактор Cartoon Studio](docs/preview.webp)
+
 ## Запуск
 
 Нужны [Node.js](https://nodejs.org/) 22.15 или новее и [FFmpeg](https://ffmpeg.org/download.html).
