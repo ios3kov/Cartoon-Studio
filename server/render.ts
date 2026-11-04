@@ -17,6 +17,11 @@ import { HttpError, checkAbort } from "./errors.ts";
 import type { RenderRunner, RenderTask } from "./jobs.ts";
 import { captureCommand, stopProcess } from "./process.ts";
 import { localOrigin } from "./providers.ts";
+import {
+  captureBrushFrame,
+  prepareRenderPage,
+  requireBrushBackend,
+} from "./renderGuard.ts";
 
 export interface RenderSettings {
   ffmpeg: string;
@@ -280,6 +285,8 @@ export function createRenderRunner(
       const url = new URL("/render.html", origin);
       url.searchParams.set("width", String(dimensions.width));
       url.searchParams.set("height", String(dimensions.height));
+      // Disable the render page's manual demo autoload; prepare only this job's project.
+      url.searchParams.set("job", task.id);
       const response = await page.goto(url.href, {
         waitUntil: "domcontentloaded",
         timeout: 60_000,
@@ -296,25 +303,12 @@ export function createRenderRunner(
         undefined,
         { timeout: 120_000 },
       );
-      await page.evaluate(
-        async ({ project, width, height }) => {
-          const api = (
-            window as unknown as {
-              studioRender: {
-                load(p: Project): Promise<void>;
-                canvas(): HTMLCanvasElement;
-              };
-            }
-          ).studioRender;
-          const canvas = api.canvas();
-          canvas.width = width;
-          canvas.height = height;
-          await api.load(project);
-          if (canvas.width !== width || canvas.height !== height)
-            throw new Error("Renderer changed output dimensions");
-        },
-        { project: task.project, ...dimensions },
-      );
+      const backend = await page.evaluate(prepareRenderPage, {
+        project: task.project,
+        ...dimensions,
+      });
+      // Check before starting the encoder. A working Chromium binary does not prove WebGL works.
+      requireBrushBackend(backend);
       checkAbort(signal);
       ffmpeg = spawn(
         settings.ffmpeg,
@@ -376,19 +370,14 @@ export function createRenderRunner(
       void encoding.catch(() => {});
       for (let frame = 0; frame < frames; frame++) {
         checkAbort(signal);
-        const data = await page.evaluate((time) => {
-          const api = (
-            window as unknown as {
-              studioRender: {
-                render(t: number): void;
-                canvas(): HTMLCanvasElement;
-              };
-            }
-          ).studioRender;
-          api.render(time);
-          return api.canvas().toDataURL("image/png");
-        }, frame / task.project.fps);
+        const captured = await page.evaluate(
+          captureBrushFrame,
+          frame / task.project.fps,
+        );
+        requireBrushBackend(captured.backend);
+        const data = captured.data;
         if (
+          typeof data !== "string" ||
           !data.startsWith("data:image/png;base64,") ||
           data.length > 12 * 1024 * 1024
         )
