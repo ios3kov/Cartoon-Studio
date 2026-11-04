@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "id": "demo_seaside",
+  "title": "Туда, где море",
+  "description": "Мира и Лея выходят из города, пересекают холмы и встречают закат у моря.",
+  "seed": 7291,
+  "width": 1280,
+  "height": 720,
+  "fps": 24,
+  "style": "watercolor",
+  "characters": [
+    {
+      "id": "mira",
+      "name": "Мира",
+      "skin": "#d5a17e",
+      "hair": "#3d3030",
+      "hairStyle": "bob",
+      "outfit": "#b8583f",
+      "accent": "#e0b751"
+    },
+    {
+      "id": "lea",
+      "name": "Лея",
+      "skin": "#f0c8a1",
+      "hair": "#87573c",
+      "hairStyle": "long",
+      "outfit": "#536e79",
+      "accent": "#c69976"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "scene_1",
+      "title": "Навстречу ветру",
+      "duration": 6,
+      "backdrop": "hills",
+      "caption": "Иногда всё начинается с маленького шага.",
+      "camera": {
+        "zoom": 1,
+        "panX": 0,
+        "panY": 0
+      },
+      "transition": "cut",
+      "actors": [
+        {
+          "id": "actor_1_1",
+          "characterId": "mira",
+          "x": 0.2,
+          "endX": 0.49,
+          "y": 0.84,
+          "scale": 1,
+          "flip": false,
+          "action": "walk",
+          "mood": "happy"
+        },
+        {
+          "id": "actor_1_2",
+          "characterId": "lea",
+          "x": 0.39,
+          "endX": 0.68,
+          "y": 0.84,
+          "scale": 1,
+          "flip": false,
+          "action": "walk",
+          "mood": "happy"
+        }
+      ]
+    },
+    {
+      "id": "scene_2",
+      "title": "Свет среди деревьев",
+      "duration": 6,
+      "backdrop": "forest",
+      "caption": "Главное — идти вместе.",
+      "camera": {
+        "zoom": 1.05,
+        "panX": 0,
+        "panY": 0
+      },
+      "transition": "fade",
+      "actors": [
+        {
+          "id": "actor_2_1",
+          "characterId": "mira",
+          "x": 0.38,
+          "endX": 0.38,
+          "y": 0.84,
+          "scale": 1,
+          "flip": false,
+          "action": "wave",
+          "mood": "happy"
+        },
+        {
+          "id": "actor_2_2",
+          "characterId": "lea",
+          "x": 0.61,
+          "endX": 0.61,
+          "y": 0.84,
+          "scale": 1,
+          "flip": false,
+          "action": "jump",
+          "mood": "surprised"
+        }
+      ]
+    },
+    {
+      "id": "scene_3",
+      "title": "Туда, где море",
+      "duration": 6,
+      "backdrop": "coast",
+      "caption": "И однажды дорога приводит к морю.",
+      "camera": {
+        "zoom": 1,
+        "panX": 0,
+        "panY": 0
+      },
+      "transition": "fade",
+      "actors": [
+        {
+          "id": "actor_3_1",
+          "characterId": "mira",
+          "x": 0.38,
+          "endX": 0.38,
+          "y": 0.84,
+          "scale": 1,
+          "flip": false,
+          "action": "wave",
+          "mood": "happy"
+        },
+        {
+          "id": "actor_3_2",
+          "characterId": "lea",
+          "x": 0.61,
+          "endX": 0.61,
+          "y": 0.84,
+          "scale": 1,
+          "flip": false,
+          "action": "idle",
+          "mood": "happy"
+        }
+      ]
+    }
+  ],
+  "audio": []
+}

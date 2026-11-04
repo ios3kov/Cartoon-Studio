@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.cartoon-studio/
+.studio-data/
+out/
+work/
+test-results/
+playwright-report/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
