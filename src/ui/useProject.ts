@@ -9,6 +9,11 @@ function storagePort(kind: "localStorage" | "sessionStorage"): StoragePort {
     getItem: (key) => window[kind].getItem(key),
     setItem: (key, value) => window[kind].setItem(key, value),
     removeItem: (key) => window[kind].removeItem(key),
+    keys: () => {
+      const storage = window[kind];
+      return Array.from({ length: storage.length }, (_, index) => storage.key(index))
+        .filter((key): key is string => key !== null);
+    },
   };
 }
 export function useProject() {
@@ -96,22 +101,23 @@ export function useProject() {
     };
     // Never write the shared project from unload handlers. Async locks are not reliable during page exit.
     const remember = () => store.remember();
+    const rememberExit = () => store.remember(true);
     const visibility = () => {
       if (document.visibilityState === "hidden") remember();
       else synchronize();
     };
     window.addEventListener("storage", changed);
     window.addEventListener("focus", synchronize);
-    window.addEventListener("pagehide", remember);
-    window.addEventListener("beforeunload", remember);
+    window.addEventListener("pagehide", rememberExit);
+    window.addEventListener("beforeunload", rememberExit);
     document.addEventListener("visibilitychange", visibility);
     return () => {
       active = false;
       remember();
       window.removeEventListener("storage", changed);
       window.removeEventListener("focus", synchronize);
-      window.removeEventListener("pagehide", remember);
-      window.removeEventListener("beforeunload", remember);
+      window.removeEventListener("pagehide", rememberExit);
+      window.removeEventListener("beforeunload", rememberExit);
       document.removeEventListener("visibilitychange", visibility);
     };
   }, [store, applyStorage]);

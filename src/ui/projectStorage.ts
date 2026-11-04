@@ -1,7 +1,8 @@
 /** Shared saves are serialized; pending edits belong to one tab, never to the shared key. */
 export const PROJECT_KEY = "cartoon-studio-project-v1";
 export const DRAFT_KEY = `${PROJECT_KEY}-pending`;
-export type StoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+export const EXIT_PREFIX = `${PROJECT_KEY}-exit-`;
+export type StoragePort = Pick<Storage, "getItem" | "setItem" | "removeItem"> & { keys?(): string[] };
 export type SaveLock = (work: () => void) => Promise<void>;
 export interface StorageSnapshot<T> {
   project: T;
@@ -13,6 +14,8 @@ const CONFLICT =
   "Проект изменён в другой вкладке. Общая копия не перезаписана. Сохраните этот вариант через «Проект → Сохранить .cartoon».";
 
 export class ProjectStorage<T> {
+  private exitKey = `${EXIT_PREFIX}${crypto.randomUUID()}`;
+  private recoveredKey: string | undefined;
   private base: string | null = null;
   private raw: string;
   private value: T;
@@ -48,13 +51,30 @@ export class ProjectStorage<T> {
           this.warning = "Сохранённый проект повреждён. Его копия сохранена отдельно. Открыт пример.";
         }
       } else this.dirty = true;
-      const pending = tab.getItem(DRAFT_KEY);
+      let pending = tab.getItem(DRAFT_KEY);
+      // A closed tab loses sessionStorage. Recover an exit journal only against the same shared revision.
+      if (!pending) {
+        let newest = -Infinity;
+        for (const key of shared.keys?.() ?? []) {
+          if (!key.startsWith(EXIT_PREFIX)) continue;
+          try {
+            const candidate = JSON.parse(shared.getItem(key) ?? "null");
+            if (!candidate || candidate.base !== this.base || typeof candidate.raw !== "string" ||
+                !Number.isFinite(candidate.at) || candidate.at <= newest) continue;
+            decode(candidate.raw);
+            newest = candidate.at;
+            pending = JSON.stringify({ ...candidate, recoveryKey: key });
+          } catch { /* An invalid recovery record cannot replace the valid shared project. */ }
+        }
+      }
       if (pending) {
         const draft: unknown = JSON.parse(pending);
         if (!draft || typeof draft !== "object" || !("base" in draft) || !("raw" in draft) ||
             (draft.base !== null && typeof draft.base !== "string") || typeof draft.raw !== "string")
           throw new Error("Invalid pending project");
         const value = decode(draft.raw);
+        if ("recoveryKey" in draft && typeof draft.recoveryKey === "string" && draft.recoveryKey.startsWith(EXIT_PREFIX))
+          this.recoveredKey = draft.recoveryKey;
         if (draft.raw === this.base) tab.removeItem(DRAFT_KEY);
         else {
           const latest = this.base;
@@ -86,9 +106,12 @@ export class ProjectStorage<T> {
   }
 
   /** Synchronous, tab-local recovery survives reload even before the shared save debounce. */
-  remember(): void {
+  remember(exiting = false): void {
     try {
-      if (this.dirty) this.tab.setItem(DRAFT_KEY, JSON.stringify({ base: this.base, raw: this.raw }));
+      // Unique keys cannot overwrite another tab. Never modify the canonical key during exit.
+      if (exiting && this.dirty)
+        this.shared.setItem(this.exitKey, JSON.stringify({ base: this.base, raw: this.raw, at: Date.now() }));
+      if (this.dirty) this.tab.setItem(DRAFT_KEY, JSON.stringify({ base: this.base, raw: this.raw, recoveryKey: this.exitKey }));
       else this.tab.removeItem(DRAFT_KEY);
     } catch {
       this.status = "error";
@@ -153,6 +176,14 @@ export class ProjectStorage<T> {
         this.status = "saved";
         this.warning = null;
         this.remember();
+        // Only remove journals consumed by this save; unrelated and conflicting recovery records stay intact.
+        for (const key of [this.exitKey, this.recoveredKey]) {
+          if (!key) continue;
+          try {
+            const journal = JSON.parse(this.shared.getItem(key) ?? "null");
+            if (journal?.raw === this.raw) this.shared.removeItem(key);
+          } catch { /* Journal cleanup does not invalidate a successful shared save. */ }
+        }
       });
       if (!this.dirty) return this.refresh();
     } catch {

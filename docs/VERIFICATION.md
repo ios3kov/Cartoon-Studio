@@ -23,10 +23,15 @@ Clean tabs accept external edits and clear their stale undo history.
 Conflicting edits remain in the editing tab; they never silently overwrite the shared project.
 The editor explains the conflict and offers the existing `.cartoon` save command.
 A synchronous per-tab `sessionStorage` journal preserves edits across reloads before the 450 ms save debounce.
-Unload handlers only journal the tab; they never write the shared key.
+Unload handlers never write the shared project key. They write a separate UUID-named exit journal to localStorage.
+A newly opened tab recovers the latest valid exit journal only when its base matches the current shared project.
+This protects an ordinary last edit when the tab closes before the save timer fires.
+Consumed exit journals are removed after a successful shared save.
 Without Web Locks, shared autosave fails visibly instead of performing unsafe writes.
 
-A session journal is not a permanent backup after closing the tab. Save a conflicting version to `.cartoon` before closing it.
+Save conflicting versions to `.cartoon` before closing their tabs.
+Conflicting exit journals never replace a newer shared revision automatically.
+An OS kill without exit events and browser storage removal are not covered by exit recovery; keep file backups.
 Reload old application tabs after upgrading; earlier versions do not participate in this locking protocol.
 
 ### Export retention
@@ -54,14 +59,16 @@ npm run setup:browser
 STUDIO_SOFTWARE_GL=1 npm run test:e2e
 ```
 
-The expected suite now contains 29 Node tests and 10 browser tests.
+The expected suite now contains 31 Node tests and 11 browser tests.
 New coverage includes simultaneous saves, stale-tab exit, reload recovery, missing locks, storage failures, old-file retention and a restarted queue.
 Two browser tests run the actual editor in two pages and exercise the browser's real cross-tab lock.
+A further browser test closes a tab before the debounce and checks recovery in a new tab.
 Only their expensive rendering device is replaced; the existing painterly rendering tests still use real WebGL.
 
-Local targeted run: nine isolated storage/filesystem tests passed under Node 22.16.0.
-The changed storage module passed a strict TypeScript check; all changed TypeScript files passed syntax transpilation.
-The container could not resolve GitHub or install the complete project. Full build, integration and browser validation run in GitHub Actions.
+Local targeted run: eleven isolated storage/filesystem tests passed under Node 22.16.0.
+The changed storage module passed a strict TypeScript check; changed TypeScript files passed syntax transpilation.
+The container could not resolve GitHub or install the complete project; local browser navigation was blocked by environment policy.
+Full build, integration and browser validation run in GitHub Actions.
 Do not treat the local targeted checks as a substitute for a successful full workflow.
 
 GitHub uploads `test-results/` and `playwright-report/` as `studio-verification` artifacts.
