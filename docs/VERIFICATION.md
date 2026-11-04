@@ -7,12 +7,15 @@ Cartoon Studio 0.1.0 · reliability fixes · 2026-11-04.
 A successful run applies only to its exact commit. Do not infer that the current branch is green from an older run.
 Use [GitHub Actions](https://github.com/ios3kov/Cartoon-Studio/actions/workflows/verify.yml) and the checks on the candidate commit.
 
-## Baseline history
+## Baseline and candidate history
 
 - `cc5f18a`: implementation workflow passed, including six browser tests.
 - `800cee0`: 19 Node tests and the build passed, but only seven of eight browser tests passed.
 - [Failed baseline run](https://github.com/ios3kov/Cartoon-Studio/actions/runs/41837412821): the narrow-layout screenshot exceeded its 15-second action budget.
 - The MP4, audio, determinism and rendering checks passed in that failed run. This does not make the full run successful.
+- `b6095eb`: 31 Node tests, type checking and the build passed. Ten of eleven browser tests passed, including the repaired mobile capture, reload/close recovery, both real multi-tab tests and MP4 export.
+- [Candidate run](https://github.com/ios3kov/Cartoon-Studio/actions/runs/41855375610) hit the old combined style/portrait test's 180-second total budget while capturing the final portrait. That run is a failure, not a release pass.
+- The following test-only correction separates the portrait check from the three-style comparison. The same real renderer, image comparisons, dimensions and normal per-test limits remain in use.
 
 ## Reliability changes
 
@@ -42,11 +45,14 @@ Unknown files, symlinks, temporary directories and active outputs are not delete
 Job IDs and download links still belong to the current process; this change does not restore the previous job queue.
 Use one server process per data directory. Audio retention and crash-temp cleanup are separate work.
 
-### Screenshot stability
+### Browser test stability
 
 Editor captures await renderer readiness, fonts and two presentation frames.
 Capture alone has a bounded 60-second budget, with CSS animations disabled.
-Interaction assertions retain their 15-second budget. No test is skipped, retried automatically or wrapped to ignore failures.
+Interaction assertions retain their 15-second budget.
+The portrait rendering check is separate from the three-style comparison so four WebGL preparations do not share one 180-second budget.
+Each test still has its normal 180-second limit.
+No test is skipped, retried automatically or wrapped to ignore failures.
 
 ## Checks
 
@@ -59,13 +65,14 @@ npm run setup:browser
 STUDIO_SOFTWARE_GL=1 npm run test:e2e
 ```
 
-The expected suite now contains 31 Node tests and 11 browser tests.
+The expected suite now contains 31 Node tests and 12 browser tests.
 New coverage includes simultaneous saves, stale-tab exit, reload recovery, missing locks, storage failures, old-file retention and a restarted queue.
 Two browser tests run the actual editor in two pages and exercise the browser's real cross-tab lock.
 A further browser test closes a tab before the debounce and checks recovery in a new tab.
 Only their expensive rendering device is replaced; the existing painterly rendering tests still use real WebGL.
 
 Local targeted run: eleven isolated storage/filesystem tests passed under Node 22.16.0.
+A further 250 simulated eight-tab conflict rounds preserved both the winning save and every pending draft.
 The changed storage module passed a strict TypeScript check; changed TypeScript files passed syntax transpilation.
 The container could not resolve GitHub or install the complete project; local browser navigation was blocked by environment policy.
 Full build, integration and browser validation run in GitHub Actions.
