@@ -1,57 +1,57 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Project } from "../shared/model";
-import {
-  cloneProject,
-  createDefaultProject,
-  validateProject,
-} from "../shared/project";
-const KEY = "cartoon-studio-project-v1";
-function initialProject(): { project: Project; warning: string | null } {
-  try {
-    const saved = localStorage.getItem(KEY);
-    return {
-      project: saved
-        ? validateProject(JSON.parse(saved))
-        : createDefaultProject(),
-      warning: null,
-    };
-  } catch {
-    let recovery = false;
-    try {
-      const broken = localStorage.getItem(KEY);
-      if (broken) {
-        localStorage.setItem(`${KEY}-recovery-${Date.now()}`, broken);
-        recovery = true;
-      }
-    } catch {
-      /* Storage may be unavailable. */
-    }
-    return {
-      project: createDefaultProject(),
-      warning: recovery
-        ? "Сохранённый проект повреждён. Его копия сохранена на устройстве. Открыт пример."
-        : "Не удалось открыть сохранённый проект. Открыт пример.",
-    };
-  }
+import { cloneProject, createDefaultProject, validateProject } from "../shared/project";
+import { ProjectStorage, PROJECT_KEY, type StoragePort, type StorageSnapshot } from "./projectStorage";
+
+// Access storage lazily: even reading window.localStorage can throw in restricted browsers.
+function storagePort(kind: "localStorage" | "sessionStorage"): StoragePort {
+  return {
+    getItem: (key) => window[kind].getItem(key),
+    setItem: (key, value) => window[kind].setItem(key, value),
+    removeItem: (key) => window[kind].removeItem(key),
+    keys: () => {
+      const storage = window[kind];
+      return Array.from({ length: storage.length }, (_, index) => storage.key(index))
+        .filter((key): key is string => key !== null);
+    },
+  };
 }
 export function useProject() {
-  const initial = useRef<ReturnType<typeof initialProject> | null>(null);
-  if (!initial.current) initial.current = initialProject();
-  const [project, setProject] = useState(initial.current.project);
-  const [saveState, setSaveState] = useState<"saving" | "saved" | "error">(
-    "saved",
-  );
-  const [warning, setWarning] = useState<string | null>(
-    initial.current.warning,
-  );
+  const persistence = useRef<ProjectStorage<Project> | null>(null);
+  if (!persistence.current)
+    persistence.current = new ProjectStorage(
+      storagePort("localStorage"), storagePort("sessionStorage"),
+      navigator.locks ? (work) => navigator.locks.request(PROJECT_KEY, work) : undefined,
+      (raw) => validateProject(JSON.parse(raw)), createDefaultProject,
+    );
+  const store = persistence.current;
+  const initial = store.snapshot();
+  const [project, setProject] = useState(initial.project);
+  const [saveState, setSaveState] = useState(initial.status);
+  const [warning, setWarning] = useState(initial.warning);
   const history = useRef<{
-    past: Project[];
-    future: Project[];
-    key: string;
-    at: number;
+    past: Project[]; future: Project[]; key: string; at: number;
   }>({ past: [], future: [], key: "", at: 0 });
   const current = useRef(project);
   const [, refresh] = useState(0);
+  const applyStorage = useCallback((snapshot: StorageSnapshot<Project>) => {
+    // Remote snapshots invalidate undo/redo: an undo must not restore another tab's stale project.
+    if (snapshot.project !== current.current) {
+      history.current = { past: [], future: [], key: "", at: 0 };
+      current.current = snapshot.project;
+      setProject(snapshot.project);
+    }
+    setSaveState(snapshot.status);
+    setWarning(snapshot.warning);
+  }, []);
+  const publish = useCallback((next: Project) => {
+    current.current = next;
+    const snapshot = store.stage(next); // Journal synchronously, before React or any debounce.
+    setProject(next);
+    setSaveState(snapshot.status);
+    setWarning(snapshot.warning);
+    refresh((value) => value + 1);
+  }, [store]);
   const commit = useCallback((edit: (draft: Project) => void, key = "") => {
     const next = cloneProject(current.current);
     edit(next);
@@ -64,84 +64,78 @@ export function useProject() {
     h.key = key;
     h.at = now;
     h.future = [];
-    current.current = valid;
-    setProject(valid);
-    refresh((value) => value + 1);
-  }, []);
+    publish(valid);
+  }, [publish]);
   const replace = useCallback((next: Project) => {
     const valid = validateProject(next);
     const h = history.current;
     h.past = [...h.past.slice(-49), current.current];
     h.future = [];
     h.key = "";
-    current.current = valid;
-    setProject(valid);
-    refresh((value) => value + 1);
-  }, []);
+    publish(valid);
+  }, [publish]);
   const undo = useCallback(() => {
     const h = history.current;
     const next = h.past.pop();
     if (!next) return;
     h.future.push(current.current);
     h.key = "";
-    current.current = next;
-    setProject(next);
-    refresh((value) => value + 1);
-  }, []);
+    publish(next);
+  }, [publish]);
   const redo = useCallback(() => {
     const h = history.current;
     const next = h.future.pop();
     if (!next) return;
     h.past.push(current.current);
     h.key = "";
-    current.current = next;
-    setProject(next);
-    refresh((value) => value + 1);
-  }, []);
+    publish(next);
+  }, [publish]);
   useEffect(() => {
-    // Browsers can leave before the debounce fires. Keep the last valid edit on exit.
-    const flush = () => {
-      try {
-        localStorage.setItem(KEY, JSON.stringify(current.current));
-      } catch {
-        setSaveState("error");
-      }
+    let active = true;
+    // A recovered tab-local draft should not wait for another editing event.
+    void store.flush().then((snapshot) => { if (active) applyStorage(snapshot); });
+    const synchronize = () => applyStorage(store.refresh());
+    const changed = (event: StorageEvent) => {
+      if ((event.key === PROJECT_KEY || event.key === null) && event.storageArea === window.localStorage)
+        synchronize();
     };
-    const hidden = () => {
-      if (document.visibilityState === "hidden") flush();
+    // Never write the shared project from unload handlers. Async locks are not reliable during page exit.
+    const remember = () => store.remember();
+    const rememberExit = () => store.remember(true);
+    const visibility = () => {
+      if (document.visibilityState === "hidden") remember();
+      else synchronize();
     };
-    window.addEventListener("pagehide", flush);
-    window.addEventListener("beforeunload", flush);
-    document.addEventListener("visibilitychange", hidden);
+    window.addEventListener("storage", changed);
+    window.addEventListener("focus", synchronize);
+    window.addEventListener("pagehide", rememberExit);
+    window.addEventListener("beforeunload", rememberExit);
+    document.addEventListener("visibilitychange", visibility);
     return () => {
-      flush();
-      window.removeEventListener("pagehide", flush);
-      window.removeEventListener("beforeunload", flush);
-      document.removeEventListener("visibilitychange", hidden);
+      active = false;
+      remember();
+      window.removeEventListener("storage", changed);
+      window.removeEventListener("focus", synchronize);
+      window.removeEventListener("pagehide", rememberExit);
+      window.removeEventListener("beforeunload", rememberExit);
+      document.removeEventListener("visibilitychange", visibility);
     };
-  }, []);
+  }, [store, applyStorage]);
   useEffect(() => {
-    setSaveState("saving");
+    if (!store.snapshot().dirty) return;
+    let active = true;
     const timeout = window.setTimeout(() => {
-      try {
-        localStorage.setItem(KEY, JSON.stringify(project));
-        setSaveState("saved");
-      } catch {
-        setSaveState("error");
-      }
+      void store.flush().then((snapshot) => { if (active) applyStorage(snapshot); });
     }, 450);
-    return () => window.clearTimeout(timeout);
-  }, [project]);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [project, store, applyStorage]);
   return {
-    project,
-    commit,
-    replace,
-    undo,
-    redo,
+    project, commit, replace, undo, redo,
     canUndo: history.current.past.length > 0,
     canRedo: history.current.future.length > 0,
-    saveState,
-    warning,
-    setWarning,
+    saveState, warning, setWarning,
   };
 }

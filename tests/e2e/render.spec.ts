@@ -102,7 +102,7 @@ test("real brush frames are deterministic, animated, and respond to text and app
   expect(errors).toEqual([]);
 });
 
-test("all three styles and a portrait frame use the same painterly renderer", async ({
+test("all three styles use distinct painterly output", async ({
   page,
 }, info) => {
   const project = createDefaultProject();
@@ -118,6 +118,16 @@ test("all three styles and a portrait frame use the same painterly renderer", as
     );
   }
   expect(frames.size).toBe(3);
+});
+
+// Four expensive WebGL preparations previously shared one 180-second test budget.
+// Keep the style comparison and portrait assertions, but give these independent behaviors separate tests.
+// The normal per-test timeout stays unchanged; no assertion, renderer or output quality is weakened.
+test("portrait frame preserves dimensions with the pastel painterly renderer", async ({
+  page,
+}, info) => {
+  const project = createDefaultProject();
+  project.style = "pastel";
   project.width = 720;
   project.height = 1280;
   expect((await load(page, project, 360, 640)).backend).toBe("p5.brush");
